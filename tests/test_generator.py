@@ -1,11 +1,11 @@
-"""Tests for SQLModel reverse engineering in ethermig.generator."""
+"""Tests for SQLModel reverse engineering in mdm.generator."""
 
 from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from sqlmodel import SQLModel
 
-from ethermig.generator import (
+from mdm.generator import (
     generate_sqlmodel_code,
     reverse_engineer_database,
     sanitize_identifier,

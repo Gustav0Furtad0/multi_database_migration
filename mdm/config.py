@@ -1,4 +1,4 @@
-"""Configuration handling for ethermig."""
+"""Configuration handling for MDM."""
 
 import configparser
 from dataclasses import dataclass, field
@@ -8,13 +8,13 @@ from typing import Optional
 
 from sqlalchemy.engine.url import make_url
 
-from ethermig.exceptions import ConfigurationError
+from mdm.exceptions import ConfigurationError
 
-CONFIG_FILENAME = "ethermig.ini"
+CONFIG_FILENAME = "mdm.ini"
 DEFAULT_ALEMBIC_CONFIG = "alembic.ini"
 DEFAULT_MODELS_OUTPUT = "models_generated.py"
 
-DEFAULT_CONFIG_TEMPLATE = f"""[ethermig]
+DEFAULT_CONFIG_TEMPLATE = f"""[mdm]
 alembic_config = {DEFAULT_ALEMBIC_CONFIG}
 models_output = {DEFAULT_MODELS_OUTPUT}
 
@@ -41,8 +41,8 @@ def mask_url(url: str) -> str:
 
 
 @dataclass(frozen=True)
-class EthermigConfig:
-    """Validated configuration for ethermig."""
+class MDMConfig:
+    """Validated configuration for MDM."""
 
     config_path: Path
     alembic_config_path: Path
@@ -51,7 +51,7 @@ class EthermigConfig:
 
     @property
     def project_root(self) -> Path:
-        """The directory containing ethermig.ini."""
+        """The directory containing mdm.ini."""
         return self.config_path.parent
 
     def get_database_url(self, env_name: str) -> str:
@@ -77,7 +77,7 @@ class EthermigConfig:
 
 
 def find_config_file(start_dir: Optional[Path] = None) -> Optional[Path]:
-    """Search for ethermig.ini starting from start_dir and traversing parent directories."""
+    """Search for mdm.ini starting from start_dir and traversing parent directories."""
     current = (start_dir or Path.cwd()).resolve()
     for parent in [current, *current.parents]:
         candidate = parent / CONFIG_FILENAME
@@ -86,11 +86,11 @@ def find_config_file(start_dir: Optional[Path] = None) -> Optional[Path]:
     return None
 
 
-def load_config(path: Optional[Path] = None) -> EthermigConfig:
-    """Load and validate ethermig.ini.
+def load_config(path: Optional[Path] = None) -> MDMConfig:
+    """Load and validate mdm.ini.
 
     Args:
-        path: Explicit path to ethermig.ini. If None, searches current directory and parents.
+        path: Explicit path to mdm.ini. If None, searches current directory and parents.
 
     Raises:
         ConfigurationError: If file does not exist, syntax is invalid, or required sections are missing.
@@ -104,7 +104,7 @@ def load_config(path: Optional[Path] = None) -> EthermigConfig:
         if not found:
             raise ConfigurationError(
                 f"'{CONFIG_FILENAME}' not found in current directory or any parent directory. "
-                f"Run 'ethermig setup --file' to create a default configuration."
+                f"Run 'mdm setup --file' to create a default configuration."
             )
         config_path = found
 
@@ -121,23 +121,23 @@ def load_config(path: Optional[Path] = None) -> EthermigConfig:
             f"Could not read configuration file '{config_path}': {exc}"
         ) from exc
 
-    # Validate [ethermig] section
-    if "ethermig" not in parser:
+    # Validate [mdm] section
+    if "mdm" not in parser:
         raise ConfigurationError(
-            f"Missing required section '[ethermig]' in {config_path.name}"
+            f"Missing required section '[mdm]' in {config_path.name}"
         )
 
-    ethermig_sec = parser["ethermig"]
-    alembic_config_str = ethermig_sec.get("alembic_config", "").strip()
+    mdm_sec = parser["mdm"]
+    alembic_config_str = mdm_sec.get("alembic_config", "").strip()
     if not alembic_config_str:
         raise ConfigurationError(
-            f"Missing 'alembic_config' in '[ethermig]' section of {config_path.name}"
+            f"Missing 'alembic_config' in '[mdm]' section of {config_path.name}"
         )
 
-    models_output_str = ethermig_sec.get("models_output", "").strip()
+    models_output_str = mdm_sec.get("models_output", "").strip()
     if not models_output_str:
         raise ConfigurationError(
-            f"Missing 'models_output' in '[ethermig]' section of {config_path.name}"
+            f"Missing 'models_output' in '[mdm]' section of {config_path.name}"
         )
 
     # Validate [environments] section
@@ -162,7 +162,7 @@ def load_config(path: Optional[Path] = None) -> EthermigConfig:
     alembic_path = (project_root / alembic_config_str).resolve()
     models_path = (project_root / models_output_str).resolve()
 
-    return EthermigConfig(
+    return MDMConfig(
         config_path=config_path,
         alembic_config_path=alembic_path,
         models_output_path=models_path,
@@ -171,7 +171,7 @@ def load_config(path: Optional[Path] = None) -> EthermigConfig:
 
 
 def create_default_config(target_dir: Optional[Path] = None) -> tuple[bool, Path]:
-    """Create default ethermig.ini in target_dir if it does not already exist.
+    """Create default mdm.ini in target_dir if it does not already exist.
 
     Returns:
         (created, path): True if file was created, False if file already existed.

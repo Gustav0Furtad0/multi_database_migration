@@ -1,4 +1,4 @@
-"""Command-line interface for ethermig using Typer and Rich."""
+"""Command-line interface for MDM using Typer and Rich."""
 
 from pathlib import Path
 import sys
@@ -21,8 +21,8 @@ from rich.panel import Panel
 from rich.table import Table
 import typer
 
-from ethermig.config import create_default_config, load_config, mask_url
-from ethermig.core import (
+from mdm.config import create_default_config, load_config, mask_url
+from mdm.core import (
     check_migration_sync,
     downgrade_database,
     generate_migration,
@@ -32,15 +32,15 @@ from ethermig.core import (
     test_connection,
     upgrade_database,
 )
-from ethermig.exceptions import (
+from mdm.exceptions import (
     AlembicOperationError,
     ConfigurationError,
     DatabaseConnectionError,
-    EthermigError,
     GenerationError,
+    MDMError,
     MigrationSyncError,
 )
-from ethermig.generator import reverse_engineer_database
+from mdm.generator import reverse_engineer_database
 
 app = typer.Typer(
     name="mdm",
@@ -80,7 +80,7 @@ def handle_error(exc: Exception) -> None:
             err_console.print("")
 
         err_console.print("[yellow]Synchronize the reference environment before generating a new migration.[/yellow]\n")
-    elif isinstance(exc, EthermigError):
+    elif isinstance(exc, MDMError):
         err_console.print(f"[bold red]Error:[/] {exc.message}")
         if exc.details:
             err_console.print(f"[dim]{exc.details}[/dim]")
@@ -96,10 +96,10 @@ def setup_main(
     file: bool = typer.Option(
         False,
         "--file",
-        help="Create a default ethermig.ini configuration in the current directory if one does not exist.",
+        help="Create a default mdm.ini configuration in the current directory if one does not exist.",
     ),
 ) -> None:
-    """Setup ethermig configuration and verify connectivity across configured environments."""
+    """Setup MDM configuration and verify connectivity across configured environments."""
     if ctx.invoked_subcommand is not None:
         return
 
@@ -117,7 +117,7 @@ def setup_main(
     except ConfigurationError as exc:
         handle_error(exc)
 
-    console.print("\n[bold]ethermig configuration[/bold]")
+    console.print("\n[bold]MDM configuration[/bold]")
     console.print("────────────────────────────────")
     console.print("[bold green]✓[/bold green] Configuration valid")
 
@@ -157,7 +157,7 @@ def setup_verify(
     env: str = typer.Option(
         "db_local",
         "--env",
-        help="Target environment name from ethermig.ini to reverse-engineer.",
+        help="Target environment name from mdm.ini to reverse-engineer.",
     ),
 ) -> None:
     """Reverse-engineer the target database schema into a canonical SQLModel file."""

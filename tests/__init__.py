@@ -1,1 +1,1 @@
-"""Test suite for ethermig."""
+"""Test suite for MDM."""

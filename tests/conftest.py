@@ -1,4 +1,4 @@
-"""Pytest fixtures for ethermig test suite."""
+"""Pytest fixtures for MDM test suite."""
 
 from pathlib import Path
 import shutil
@@ -55,10 +55,10 @@ target_metadata = SQLModel.metadata
     dev_db_path = tmp_path / "dev.db"
     prod_db_path = tmp_path / "prod.db"
 
-    # Create ethermig.ini
-    ethermig_ini = tmp_path / "ethermig.ini"
-    ethermig_ini.write_text(
-        f"""[ethermig]
+    # Create mdm.ini
+    mdm_ini = tmp_path / "mdm.ini"
+    mdm_ini.write_text(
+        f"""[mdm]
 alembic_config = alembic.ini
 models_output = models_generated.py
 

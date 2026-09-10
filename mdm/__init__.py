@@ -1,10 +1,10 @@
-"""ethermig: Multi-environment database migration CLI and library.
+"""MDM: Multi-Environment Database Migration CLI and library.
 
 Built on top of Alembic, SQLAlchemy, and SQLModel.
 """
 
-from ethermig.config import EthermigConfig, create_default_config, load_config, mask_url
-from ethermig.core import (
+from mdm.config import MDMConfig, create_default_config, load_config, mask_url
+from mdm.core import (
     check_migration_sync,
     downgrade_database,
     generate_migration,
@@ -18,15 +18,15 @@ from ethermig.core import (
     test_connection,
     upgrade_database,
 )
-from ethermig.exceptions import (
+from mdm.exceptions import (
     AlembicOperationError,
     ConfigurationError,
     DatabaseConnectionError,
-    EthermigError,
     GenerationError,
+    MDMError,
     MigrationSyncError,
 )
-from ethermig.generator import (
+from mdm.generator import (
     generate_sqlmodel_code,
     reverse_engineer_database,
 )
@@ -34,13 +34,13 @@ from ethermig.generator import (
 __version__ = "0.1.0"
 
 __all__ = [
-    "EthermigError",
+    "MDMError",
     "ConfigurationError",
     "DatabaseConnectionError",
     "MigrationSyncError",
     "GenerationError",
     "AlembicOperationError",
-    "EthermigConfig",
+    "MDMConfig",
     "load_config",
     "create_default_config",
     "mask_url",

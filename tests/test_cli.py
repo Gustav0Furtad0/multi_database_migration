@@ -1,4 +1,4 @@
-"""Tests for CLI commands and exit codes in ethermig.cli."""
+"""Tests for CLI commands and exit codes in mdm.cli."""
 
 import os
 from pathlib import Path
@@ -6,21 +6,21 @@ import pytest
 import sqlalchemy as sa
 from typer.testing import CliRunner
 
-from ethermig.cli import app
-from ethermig.config import load_config
-from ethermig.core import get_script_directory, stamp_database
+from mdm.cli import app
+from mdm.config import load_config
+from mdm.core import get_script_directory, stamp_database
 
 runner = CliRunner()
 
 
 def test_cli_setup_file(tmp_path: Path, monkeypatch):
-    """Verify 'ethermig setup --file' command."""
+    """Verify 'mdm setup --file' command."""
     monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(app, ["setup", "--file"])
     assert result.exit_code == 0
     assert "Created default configuration file" in result.output
-    assert (tmp_path / "ethermig.ini").is_file()
+    assert (tmp_path / "mdm.ini").is_file()
 
     # Second invocation does not overwrite
     result2 = runner.invoke(app, ["setup", "--file"])
@@ -29,7 +29,7 @@ def test_cli_setup_file(tmp_path: Path, monkeypatch):
 
 
 def test_cli_setup_missing_config(tmp_path: Path, monkeypatch):
-    """Verify 'ethermig setup' exits 1 when ethermig.ini is missing."""
+    """Verify 'mdm setup' exits 1 when mdm.ini is missing."""
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["setup"])
     assert result.exit_code == 1
@@ -39,11 +39,11 @@ def test_cli_setup_missing_config(tmp_path: Path, monkeypatch):
 
 
 def test_cli_setup_missing_alembic(tmp_path: Path, monkeypatch):
-    """Verify 'ethermig setup' exits 1 when alembic.ini is missing."""
+    """Verify 'mdm setup' exits 1 when alembic.ini is missing."""
     monkeypatch.chdir(tmp_path)
-    ini_file = tmp_path / "ethermig.ini"
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
-        """[ethermig]
+        """[mdm]
 alembic_config = missing_alembic.ini
 models_output = models_generated.py
 
@@ -58,7 +58,7 @@ db_local = sqlite:///test.db
 
 
 def test_cli_setup_success(temp_project: Path, monkeypatch):
-    """Verify 'ethermig setup' displays valid table and exits 0 when all DBs connect."""
+    """Verify 'mdm setup' displays valid table and exits 0 when all DBs connect."""
     monkeypatch.chdir(temp_project)
     result = runner.invoke(app, ["setup"])
     assert result.exit_code == 0
@@ -69,7 +69,7 @@ def test_cli_setup_success(temp_project: Path, monkeypatch):
 
 
 def test_cli_setup_verify(temp_project: Path, monkeypatch):
-    """Verify 'ethermig setup verify --env db_local' reverse-engineers the database."""
+    """Verify 'mdm setup verify --env db_local' reverse-engineers the database."""
     monkeypatch.chdir(temp_project)
 
     # Populate db_local with a table
@@ -88,9 +88,9 @@ def test_cli_setup_verify(temp_project: Path, monkeypatch):
 
 
 def test_cli_current(temp_project: Path, monkeypatch):
-    """Verify 'ethermig current' displays revisions across environments."""
+    """Verify 'mdm current' displays revisions across environments."""
     monkeypatch.chdir(temp_project)
-    cfg = load_config(temp_project / "ethermig.ini")
+    cfg = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(cfg)
     r1 = script_dir.generate_revision("r1", "init schema", refresh=True)
     stamp_database(cfg, env_name="db_local", revision="r1")
@@ -104,9 +104,9 @@ def test_cli_current(temp_project: Path, monkeypatch):
 
 
 def test_cli_generate_blocked_by_sync_guard(temp_project: Path, monkeypatch):
-    """Verify 'ethermig generate' is blocked when a remote environment contains unapplied migrations."""
+    """Verify 'mdm generate' is blocked when a remote environment contains unapplied migrations."""
     monkeypatch.chdir(temp_project)
-    cfg = load_config(temp_project / "ethermig.ini")
+    cfg = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(cfg)
 
     r1 = script_dir.generate_revision("r1", "first", refresh=True)
@@ -126,9 +126,9 @@ def test_cli_generate_blocked_by_sync_guard(temp_project: Path, monkeypatch):
 
 
 def test_cli_generate_success(temp_project: Path, monkeypatch):
-    """Verify 'ethermig generate' generates migration when environments are synchronized."""
+    """Verify 'mdm generate' generates migration when environments are synchronized."""
     monkeypatch.chdir(temp_project)
-    cfg = load_config(temp_project / "ethermig.ini")
+    cfg = load_config(temp_project / "mdm.ini")
 
     # Add a table to db_local
     local_db = temp_project / "local.db"
@@ -146,7 +146,7 @@ def test_cli_generate_success(temp_project: Path, monkeypatch):
 def test_cli_upgrade_downgrade_stamp(temp_project: Path, monkeypatch):
     """Verify upgrade, downgrade, and stamp CLI commands."""
     monkeypatch.chdir(temp_project)
-    cfg = load_config(temp_project / "ethermig.ini")
+    cfg = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(cfg)
     r1 = script_dir.generate_revision("r1", "first migration", refresh=True)
 

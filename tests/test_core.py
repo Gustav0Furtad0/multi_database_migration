@@ -1,4 +1,4 @@
-"""Tests for core migration management, Alembic integration, and sync guard in ethermig.core."""
+"""Tests for core migration management, Alembic integration, and sync guard in mdm.core."""
 
 from pathlib import Path
 import pytest
@@ -6,8 +6,8 @@ import sqlalchemy as sa
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-from ethermig.config import EthermigConfig, load_config
-from ethermig.core import (
+from mdm.config import MDMConfig, load_config
+from mdm.core import (
     check_migration_sync,
     downgrade_database,
     generate_migration,
@@ -20,7 +20,7 @@ from ethermig.core import (
     test_connection as core_test_connection,
     upgrade_database,
 )
-from ethermig.exceptions import (
+from mdm.exceptions import (
     DatabaseConnectionError,
     MigrationSyncError,
 )
@@ -44,7 +44,7 @@ def test_test_connection(tmp_path: Path):
 
 def test_get_current_heads(tmp_path: Path, temp_project: Path):
     """Verify reading migration heads via MigrationContext."""
-    config = load_config(temp_project / "ethermig.ini")
+    config = load_config(temp_project / "mdm.ini")
     engine = get_engine(config.get_database_url("db_local"))
 
     # Initially empty, no alembic_version table
@@ -62,7 +62,7 @@ def test_get_current_heads(tmp_path: Path, temp_project: Path):
 
 def test_get_ancestor_revisions_linear_and_branches(temp_project: Path):
     """Verify ancestor graph traversal for linear, branched, and merge revisions."""
-    config = load_config(temp_project / "ethermig.ini")
+    config = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(config)
 
     # rev1
@@ -86,7 +86,7 @@ def test_get_ancestor_revisions_linear_and_branches(temp_project: Path):
 
 def test_sync_guard_safe_state(temp_project: Path):
     """Verify check_migration_sync passes when reference environment is at or ahead."""
-    config = load_config(temp_project / "ethermig.ini")
+    config = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(config)
 
     r1 = script_dir.generate_revision("r1", "rev 1", refresh=True)
@@ -106,7 +106,7 @@ def test_sync_guard_safe_state(temp_project: Path):
 
 def test_sync_guard_unsafe_state_blocked(temp_project: Path):
     """Verify check_migration_sync detects remote unapplied revisions."""
-    config = load_config(temp_project / "ethermig.ini")
+    config = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(config)
 
     r1 = script_dir.generate_revision("r1", "rev 1", refresh=True)
@@ -132,10 +132,10 @@ def test_sync_guard_unsafe_state_blocked(temp_project: Path):
 
 def test_sync_guard_unreachable_fail_closed(temp_project: Path):
     """Verify check_migration_sync fails closed when a remote database cannot be reached."""
-    # Add an unreachable environment to ethermig.ini
-    ini_path = temp_project / "ethermig.ini"
+    # Add an unreachable environment to mdm.ini
+    ini_path = temp_project / "mdm.ini"
     ini_path.write_text(
-        f"""[ethermig]
+        f"""[mdm]
 alembic_config = alembic.ini
 models_output = models_generated.py
 
@@ -158,7 +158,7 @@ db_unreachable = postgresql://user:pass@127.0.0.1:59998/offline
 
 def test_migration_lifecycle(temp_project: Path):
     """Verify upgrade, downgrade, and stamp lifecycle across an environment."""
-    config = load_config(temp_project / "ethermig.ini")
+    config = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(config)
 
     # Generate revision 1
@@ -182,7 +182,7 @@ def test_migration_lifecycle(temp_project: Path):
 
 def test_get_environment_status(temp_project: Path):
     """Verify inspecting environment statuses across multiple databases."""
-    config = load_config(temp_project / "ethermig.ini")
+    config = load_config(temp_project / "mdm.ini")
     script_dir = get_script_directory(config)
     r1 = script_dir.generate_revision("r1", "my migration message", refresh=True)
     stamp_database(config, env_name="db_local", revision="r1")

@@ -1,16 +1,16 @@
-"""Tests for configuration handling in ethermig.config."""
+"""Tests for configuration handling in mdm.config."""
 
 from pathlib import Path
 import pytest
 
-from ethermig.config import (
-    EthermigConfig,
+from mdm.config import (
+    MDMConfig,
     create_default_config,
     find_config_file,
     load_config,
     mask_url,
 )
-from ethermig.exceptions import ConfigurationError
+from mdm.exceptions import ConfigurationError
 
 
 def test_mask_url():
@@ -39,9 +39,9 @@ def test_mask_url():
 
 def test_load_valid_config(tmp_path: Path):
     """Verify loading and resolving paths in a valid configuration."""
-    ini_file = tmp_path / "ethermig.ini"
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
-        """[ethermig]
+        """[mdm]
 alembic_config = config/alembic.ini
 models_output = generated/models.py
 
@@ -68,24 +68,24 @@ def test_load_config_missing_file(tmp_path: Path):
         load_config(missing)
 
 
-def test_missing_ethermig_section(tmp_path: Path):
-    """Verify error when [ethermig] section is missing."""
-    ini_file = tmp_path / "ethermig.ini"
+def test_missing_mdm_section(tmp_path: Path):
+    """Verify error when [mdm] section is missing."""
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
         """[environments]
 db_local = sqlite:///test.db
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ConfigurationError, match="Missing required section '\\[ethermig\\]'"):
+    with pytest.raises(ConfigurationError, match="Missing required section '\\[mdm\\]'"):
         load_config(ini_file)
 
 
 def test_missing_alembic_config_option(tmp_path: Path):
     """Verify error when alembic_config option is missing."""
-    ini_file = tmp_path / "ethermig.ini"
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
-        """[ethermig]
+        """[mdm]
 models_output = models.py
 
 [environments]
@@ -99,9 +99,9 @@ db_local = sqlite:///test.db
 
 def test_missing_environments_section(tmp_path: Path):
     """Verify error when [environments] section is missing."""
-    ini_file = tmp_path / "ethermig.ini"
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
-        """[ethermig]
+        """[mdm]
 alembic_config = alembic.ini
 models_output = models.py
 """,
@@ -113,9 +113,9 @@ models_output = models.py
 
 def test_empty_environments(tmp_path: Path):
     """Verify error when no environments are specified in [environments]."""
-    ini_file = tmp_path / "ethermig.ini"
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
-        """[ethermig]
+        """[mdm]
 alembic_config = alembic.ini
 models_output = models.py
 
@@ -129,9 +129,9 @@ models_output = models.py
 
 def test_get_database_url_unknown_env(tmp_path: Path):
     """Verify error when querying an unconfigured environment."""
-    ini_file = tmp_path / "ethermig.ini"
+    ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
-        """[ethermig]
+        """[mdm]
 alembic_config = alembic.ini
 models_output = models.py
 
@@ -152,7 +152,7 @@ def test_create_default_config(tmp_path: Path):
     assert created is True
     assert path.is_file()
     content = path.read_text(encoding="utf-8")
-    assert "[ethermig]" in content
+    assert "[mdm]" in content
     assert "[environments]" in content
     assert "db_local" in content
 

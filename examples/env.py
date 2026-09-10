@@ -1,4 +1,4 @@
-"""Example Alembic env.py integration for ethermig.
+"""Example Alembic env.py integration for MDM.
 
 This file demonstrates how an existing or standard Alembic env.py
 should consume the generated SQLModel metadata from models_generated.py.
@@ -25,7 +25,7 @@ from sqlmodel import SQLModel
 try:
     import models_generated  # noqa: F401
 except ImportError:
-    # models_generated.py has not been created yet via ethermig setup verify
+    # models_generated.py has not been created yet via mdm setup verify
     pass
 
 # Alembic Config object, which provides access to values within alembic.ini
@@ -68,7 +68,7 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine and associate a connection
     with the context.
 
-    The connection URL is dynamically injected by ethermig via:
+    The connection URL is dynamically injected by MDM via:
         alembic_cfg.set_main_option('sqlalchemy.url', database_url)
     """
     connectable = engine_from_config(

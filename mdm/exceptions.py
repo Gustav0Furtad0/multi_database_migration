@@ -1,10 +1,10 @@
-"""Domain-level exceptions for ethermig."""
+"""Domain-level exceptions for MDM."""
 
 from typing import Optional
 
 
-class EthermigError(Exception):
-    """Base exception for all ethermig errors."""
+class MDMError(Exception):
+    """Base exception for all MDM errors."""
 
     def __init__(self, message: str, details: Optional[str] = None) -> None:
         super().__init__(message)
@@ -17,12 +17,12 @@ class EthermigError(Exception):
         return self.message
 
 
-class ConfigurationError(EthermigError):
+class ConfigurationError(MDMError):
     """Raised when configuration loading, parsing, or validation fails."""
     pass
 
 
-class DatabaseConnectionError(EthermigError):
+class DatabaseConnectionError(MDMError):
     """Raised when a database connection cannot be established."""
 
     def __init__(self, message: str, environment: Optional[str] = None, details: Optional[str] = None) -> None:
@@ -30,7 +30,7 @@ class DatabaseConnectionError(EthermigError):
         self.environment = environment
 
 
-class MigrationSyncError(EthermigError):
+class MigrationSyncError(MDMError):
     """Raised when migration synchronization check fails."""
 
     def __init__(
@@ -49,11 +49,11 @@ class MigrationSyncError(EthermigError):
         self.unreachable_envs = unreachable_envs or []
 
 
-class GenerationError(EthermigError):
+class GenerationError(MDMError):
     """Raised when database schema reflection or SQLModel code generation fails."""
     pass
 
 
-class AlembicOperationError(EthermigError):
+class AlembicOperationError(MDMError):
     """Raised when an Alembic operation (revision, upgrade, downgrade, stamp) fails."""
     pass

@@ -50,9 +50,9 @@ dev = [
 ]
 
 [project.scripts]
-mdm = "ethermig.cli:app"
-ethermig = "ethermig.cli:app"
+mdm = "mdm.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ethermig*"]
+include = ["mdm*"]
+

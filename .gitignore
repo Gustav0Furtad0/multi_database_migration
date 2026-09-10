@@ -25,4 +25,4 @@ htmlcov/
 *.sqlite3
 models_generated.py
 alembic/
-ethermig.ini
+mdm.ini

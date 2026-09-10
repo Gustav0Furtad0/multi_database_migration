@@ -12,13 +12,13 @@ from alembic.script import Script, ScriptDirectory
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine, make_url
 
-from ethermig.config import EthermigConfig, mask_url
-from ethermig.exceptions import (
+from mdm.config import MDMConfig, mask_url
+from mdm.exceptions import (
     AlembicOperationError,
     DatabaseConnectionError,
     MigrationSyncError,
 )
-from ethermig.generator import reverse_engineer_database
+from mdm.generator import reverse_engineer_database
 
 
 @dataclass(frozen=True)
@@ -99,7 +99,7 @@ def test_connection(url: str, timeout: int = 3) -> tuple[bool, Optional[str]]:
             engine.dispose()
 
 
-def get_alembic_config(config: EthermigConfig, env_name: str) -> Config:
+def get_alembic_config(config: MDMConfig, env_name: str) -> Config:
     """Create and configure an Alembic Config object for the given environment."""
     config.validate_alembic_exists()
 
@@ -117,7 +117,7 @@ def get_alembic_config(config: EthermigConfig, env_name: str) -> Config:
     return alembic_cfg
 
 
-def get_script_directory(config: EthermigConfig) -> ScriptDirectory:
+def get_script_directory(config: MDMConfig) -> ScriptDirectory:
     """Load Alembic ScriptDirectory from the configured alembic.ini."""
     config.validate_alembic_exists()
     alembic_cfg = Config(str(config.alembic_config_path))
@@ -176,7 +176,7 @@ def get_ancestor_revisions(script_dir: ScriptDirectory, heads: Iterable[str]) ->
     return ancestors
 
 
-def get_environment_status(config: EthermigConfig) -> list[EnvironmentStatus]:
+def get_environment_status(config: MDMConfig) -> list[EnvironmentStatus]:
     """Inspect migration status across all configured environments."""
     script_dir = None
     try:
@@ -252,7 +252,7 @@ def get_environment_status(config: EthermigConfig) -> list[EnvironmentStatus]:
     return results
 
 
-def check_migration_sync(config: EthermigConfig, reference_env: str) -> SyncCheckResult:
+def check_migration_sync(config: MDMConfig, reference_env: str) -> SyncCheckResult:
     """Check migration synchronization between the reference environment and remote environments.
 
     Fails closed if any remote environment is unreachable.
@@ -320,7 +320,7 @@ def check_migration_sync(config: EthermigConfig, reference_env: str) -> SyncChec
 
 
 def generate_migration(
-    config: EthermigConfig,
+    config: MDMConfig,
     message: str,
     reference_env: str = "db_local",
 ) -> tuple[str, Path]:
@@ -378,7 +378,7 @@ def generate_migration(
 
 
 def upgrade_database(
-    config: EthermigConfig,
+    config: MDMConfig,
     env_name: str = "db_local",
     revision: str = "head",
 ) -> None:
@@ -391,7 +391,7 @@ def upgrade_database(
 
 
 def downgrade_database(
-    config: EthermigConfig,
+    config: MDMConfig,
     env_name: str = "db_local",
     revision: str = "-1",
 ) -> None:
@@ -404,7 +404,7 @@ def downgrade_database(
 
 
 def stamp_database(
-    config: EthermigConfig,
+    config: MDMConfig,
     env_name: str = "db_local",
     revision: str = "head",
 ) -> None:

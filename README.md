@@ -40,7 +40,7 @@
 - [Installation](#-installation)
 - [Project Layout](#-project-layout)
 - [Quickstart](#-quickstart)
-- [Configuration: ethermig.ini](#-configuration-ethermigini)
+- [Configuration: mdm.ini](#-configuration-mdmini)
 - [Alembic Configuration & env.py](#-alembic-configuration--envpy)
 - [CLI Reference](#-cli-reference)
   - [1. Configuration & Verification (`setup`)](#1-configuration--verification-setup)
@@ -72,8 +72,6 @@ Verify installation:
 
 ```bash
 mdm --help
-# (alias 'ethermig' is also available)
-ethermig --help
 ```
 
 ---
@@ -84,7 +82,7 @@ When integrating MDM into your service:
 
 ```text
 my_project/
-├── ethermig.ini            # Environment connection strings and paths
+├── mdm.ini                 # Environment connection strings and paths
 ├── alembic.ini             # Standard Alembic configuration file
 ├── alembic/
 │   ├── env.py              # Dynamic Alembic environment runner
@@ -100,7 +98,7 @@ my_project/
 
 ### 1. Initialize Configuration
 
-Generate a default `ethermig.ini` in your project root:
+Generate a default `mdm.ini` in your project root:
 
 ```bash
 mdm setup --file
@@ -115,7 +113,7 @@ mdm setup
 ```
 
 ```text
-ethermig configuration
+MDM configuration
 ────────────────────────────────
 ✓ Configuration valid
 ✓ Alembic configuration found
@@ -149,12 +147,12 @@ mdm generate -m "add orders table" --env db_local
 
 ---
 
-## ⚙️ Configuration: `ethermig.ini`
+## ⚙️ Configuration: `mdm.ini`
 
 MDM uses standard `configparser` format:
 
 ```ini
-[ethermig]
+[mdm]
 alembic_config = alembic.ini
 models_output = models_generated.py
 
@@ -164,7 +162,7 @@ db_dev = postgresql://app_user:secret_pass@dev-host:5432/dev_db
 db_prod = postgresql://app_user:secret_pass@prod-host:5432/prod_db
 ```
 
-* Paths are resolved relative to the directory containing `ethermig.ini`.
+* Paths are resolved relative to the directory containing `mdm.ini`.
 * Environment names are completely arbitrary (`db_staging`, `qa`, `eu_cluster`, etc.).
 * Credentials are automatically masked in console outputs.
 
@@ -261,7 +259,7 @@ else:
 ### 1. Configuration & Verification (`setup`)
 
 ```bash
-# Generate starter ethermig.ini (idempotent, won't overwrite existing file)
+# Generate starter mdm.ini (idempotent, won't overwrite existing file)
 mdm setup --file
 
 # Validate config, alembic.ini, and test all database connections
@@ -396,7 +394,7 @@ Production Deployment: mdm upgrade head --env db_prod
 Use MDM directly in your Python code:
 
 ```python
-from ethermig import (
+from mdm import (
     load_config,
     check_migration_sync,
     generate_migration,
