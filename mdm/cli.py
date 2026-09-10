@@ -29,6 +29,7 @@ from mdm.core import (
     generate_migration,
     get_engine,
     get_environment_status,
+    init_alembic_environment,
     stamp_database,
     test_connection,
     upgrade_database,
@@ -120,8 +121,23 @@ def setup_main(
         "--file",
         help="Create a default mdm.ini configuration in the current directory if one does not exist.",
     ),
+    env: Optional[str] = typer.Option(
+        None,
+        "--env",
+        help="Target environment to reverse-engineer models from (defaults to db_local or first connected environment).",
+    ),
+    models: bool = typer.Option(
+        True,
+        "--models/--no-models",
+        help="Automatically reverse-engineer database schema into the configured models file.",
+    ),
+    init_alembic: bool = typer.Option(
+        True,
+        "--init-alembic/--no-init-alembic",
+        help="Automatically initialize Alembic configuration and migration directory if missing.",
+    ),
 ) -> None:
-    """Setup MDM configuration and verify connectivity across configured environments."""
+    """Setup MDM configuration, initialize Alembic, and generate SQLModel models."""
     if ctx.invoked_subcommand is not None:
         return
 
@@ -143,34 +159,84 @@ def setup_main(
     console.print("────────────────────────────────")
     console.print("[bold green]✓[/bold green] Configuration valid")
 
-    alembic_exists = config.alembic_config_path.is_file()
-    if alembic_exists:
-        console.print("[bold green]✓[/bold green] Alembic configuration found\n")
-    else:
-        console.print(
-            f"[bold red]✗[/bold red] Alembic configuration NOT found at: [dim]{config.alembic_config_path}[/dim]\n"
-        )
-
     table = Table(title=None, show_header=True, header_style="bold", box=None, pad_edge=False)
     table.add_column("Environment", min_width=16)
     table.add_column("Status", min_width=24)
 
-    has_failures = not alembic_exists
+    connected_envs: list[str] = []
+    has_failures = False
 
     for env_name, db_url in config.environments.items():
         connected, err = test_connection(db_url)
         if connected:
             table.add_row(f"[cyan]{env_name}[/cyan]", "[green]✓ Connected[/green]")
+            connected_envs.append(env_name)
         else:
             has_failures = True
             msg = err or "Can't connect to this DB."
             table.add_row(f"[cyan]{env_name}[/cyan]", f"[red]✗ {msg}[/red]")
 
+    console.print()
     console.print(table)
     console.print()
 
+    # Check or initialize Alembic configuration
+    alembic_exists = config.alembic_config_path.is_file()
+    if alembic_exists:
+        console.print(f"[bold green]✓[/bold green] Alembic configuration found at: [cyan]{config.alembic_config_path}[/cyan]")
+    elif init_alembic:
+        ini_path, script_dir = init_alembic_environment(config)
+        console.print(
+            f"[bold green]✓[/bold green] Initialized Alembic migration environment ([cyan]{ini_path.name}[/cyan], [cyan]{script_dir.name}/env.py[/cyan])"
+        )
+    else:
+        has_failures = True
+        console.print(
+            f"[bold red]✗[/bold red] Alembic configuration NOT found at: [dim]{config.alembic_config_path}[/dim]"
+        )
+
+    # Automatically reverse-engineer database models
+    if models:
+        if not connected_envs:
+            console.print("[yellow]⚠ Skipping model generation: no configured database environment is currently reachable.[/yellow]")
+        else:
+            target_env: Optional[str] = None
+            if env:
+                if env not in config.environments:
+                    handle_error(
+                        ConfigurationError(
+                            f"Environment '{env}' not found in configuration.",
+                            config_path=config.config_path,
+                        )
+                    )
+                if env not in connected_envs:
+                    handle_error(
+                        DatabaseConnectionError(
+                            f"Cannot connect to target environment '{env}' to generate models.",
+                            environment=env,
+                        )
+                    )
+                target_env = env
+            elif "db_local" in connected_envs:
+                target_env = "db_local"
+            else:
+                target_env = connected_envs[0]
+
+            try:
+                engine = get_engine(config.get_database_url(target_env))
+                with console.status(f"[bold blue]Inspecting database '{target_env}' and generating models...[/bold blue]"):
+                    table_count, out_path = reverse_engineer_database(engine, config.models_output_path)
+                console.print(
+                    f"[bold green]✓[/bold green] Generated SQLModel models in [cyan]{out_path}[/cyan] ([green]{table_count}[/green] table(s) from [cyan]{target_env}[/cyan])"
+                )
+            except Exception as exc:
+                console.print(f"[bold red]✗ Failed to generate models:[/] {exc}")
+                has_failures = True
+
     if has_failures:
         raise typer.Exit(code=1)
+
+    console.print("\n[bold green]Setup completed successfully![/bold green]\n")
     raise typer.Exit(code=0)
 
 

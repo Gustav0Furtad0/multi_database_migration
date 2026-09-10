@@ -99,6 +99,202 @@ def test_connection(url: str, timeout: int = 3) -> tuple[bool, Optional[str]]:
             engine.dispose()
 
 
+ALEMBIC_INI_TEMPLATE = """# A generic, single database configuration for Alembic with MDM.
+
+[alembic]
+# path to migration scripts
+script_location = %(here)s/__SCRIPT_LOCATION__
+
+# sys.path path, will be prepended to sys.path if present.
+prepend_sys_path = .
+path_separator = os
+
+sqlalchemy.url = sqlite:///
+
+[post_write_hooks]
+
+# Logging configuration
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+"""
+
+ALEMBIC_ENV_TEMPLATE = '''"""Alembic environment configuration for MDM."""
+
+from logging.config import fileConfig
+from pathlib import Path
+import sys
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+from sqlmodel import SQLModel
+
+# Ensure project root is on sys.path so models can be imported
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Automatically import generated models or models.py so SQLModel.metadata is populated
+for _mod in ["__MODELS_MODULE__", "models_generated", "models"]:
+    try:
+        __import__(_mod)
+    except ImportError:
+        pass
+
+# Alembic Config object, which provides access to values within alembic.ini
+config = context.config
+
+# Interpret the config file for Python logging.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# target_metadata is set to SQLModel.metadata for Alembic autogenerate
+target_metadata = SQLModel.metadata
+
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        render_as_batch=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            render_as_batch=True,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+'''
+
+ALEMBIC_SCRIPT_MAKO_TEMPLATE = '''"""${message}
+
+Revision ID: ${up_revision}
+Revises: ${down_revision | comma,n}
+Create Date: ${create_date}
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+import sqlmodel
+${imports if imports else ""}
+
+# revision identifiers, used by Alembic.
+revision: str = ${repr(up_revision)}
+down_revision: Union[str, Sequence[str], None] = ${repr(down_revision)}
+branch_labels: Union[str, Sequence[str], None] = ${repr(branch_labels)}
+depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
+
+
+def upgrade() -> None:
+    ${upgrades if upgrades else "pass"}
+
+
+def downgrade() -> None:
+    ${downgrades if downgrades else "pass"}
+'''
+
+
+def init_alembic_environment(
+    config: MDMConfig,
+    script_dir_name: str = "alembic",
+) -> tuple[Path, Path]:
+    """Initialize an Alembic migration environment pre-configured for SQLModel and MDM.
+
+    Creates alembic.ini and the alembic script directory (env.py, script.py.mako, versions/).
+    Returns (alembic_ini_path, script_dir_path).
+    """
+    ini_path = config.alembic_config_path
+    ini_path.parent.mkdir(parents=True, exist_ok=True)
+
+    script_dir = ini_path.parent / script_dir_name
+    script_dir.mkdir(parents=True, exist_ok=True)
+    (script_dir / "versions").mkdir(parents=True, exist_ok=True)
+
+    # Write alembic.ini if not existing
+    if not ini_path.is_file():
+        ini_content = ALEMBIC_INI_TEMPLATE.replace("__SCRIPT_LOCATION__", script_dir_name)
+        ini_path.write_text(ini_content, encoding="utf-8")
+
+    # Write env.py if not existing
+    env_py = script_dir / "env.py"
+    if not env_py.is_file():
+        models_module = config.models_output_path.stem
+        env_content = ALEMBIC_ENV_TEMPLATE.replace("__MODELS_MODULE__", models_module)
+        env_py.write_text(env_content, encoding="utf-8")
+
+    # Write script.py.mako if not existing
+    script_mako = script_dir / "script.py.mako"
+    if not script_mako.is_file():
+        script_mako.write_text(ALEMBIC_SCRIPT_MAKO_TEMPLATE, encoding="utf-8")
+
+    # Write README if not existing
+    readme = script_dir / "README"
+    if not readme.is_file():
+        readme.write_text("Generic single-database configuration with MDM.\\n", encoding="utf-8")
+
+    return ini_path, script_dir
+
+
 def get_alembic_config(config: MDMConfig, env_name: str) -> Config:
     """Create and configure an Alembic Config object for the given environment."""
     config.validate_alembic_exists()

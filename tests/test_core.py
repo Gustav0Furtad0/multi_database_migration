@@ -16,6 +16,7 @@ from mdm.core import (
     get_engine,
     get_environment_status,
     get_script_directory,
+    init_alembic_environment,
     stamp_database,
     test_connection as core_test_connection,
     upgrade_database,
@@ -195,3 +196,28 @@ def test_get_environment_status(temp_project: Path):
     assert len(local_st.revisions) == 1
     assert local_st.revisions[0].revision == "r1"
     assert local_st.revisions[0].message == "my migration message"
+
+
+def test_init_alembic_environment(tmp_path: Path):
+    """Verify init_alembic_environment creates valid Alembic environment."""
+    config = MDMConfig(
+        config_path=tmp_path / "mdm.ini",
+        alembic_config_path=tmp_path / "alembic.ini",
+        models_output_path=tmp_path / "models_generated.py",
+        environments={"db_local": "sqlite:///test.db"},
+    )
+    ini_path, script_dir = init_alembic_environment(config)
+
+    assert ini_path.is_file()
+    assert (script_dir / "env.py").is_file()
+    assert (script_dir / "script.py.mako").is_file()
+    assert (script_dir / "versions").is_dir()
+    assert (script_dir / "README").is_file()
+
+    # Verify ScriptDirectory can load and generate revisions
+    script_directory = get_script_directory(config)
+    assert script_directory is not None
+    rev = script_directory.generate_revision("r1", "initial revision", refresh=True)
+    assert rev is not None
+    assert Path(rev.path).is_file()
+

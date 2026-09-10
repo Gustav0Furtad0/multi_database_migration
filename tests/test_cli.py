@@ -49,8 +49,31 @@ def test_cli_setup_missing_config(tmp_path: Path, monkeypatch):
     assert "Traceback" not in result.output
 
 
-def test_cli_setup_missing_alembic(tmp_path: Path, monkeypatch):
-    """Verify 'mdm setup' exits 1 when alembic.ini is missing."""
+def test_cli_setup_auto_initializes_alembic_and_models(tmp_path: Path, monkeypatch):
+    """Verify 'mdm setup' automatically initializes Alembic and generates models if missing."""
+    monkeypatch.chdir(tmp_path)
+    ini_file = tmp_path / "mdm.ini"
+    ini_file.write_text(
+        """[mdm]
+alembic_config = alembic.ini
+models_output = models_generated.py
+
+[environments]
+db_local = sqlite:///test.db
+""",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["setup"])
+    assert result.exit_code == 0
+    assert "Initialized Alembic migration environment" in result.output
+    assert "Generated SQLModel models" in result.output
+    assert (tmp_path / "alembic.ini").is_file()
+    assert (tmp_path / "alembic" / "env.py").is_file()
+    assert (tmp_path / "models_generated.py").is_file()
+
+
+def test_cli_setup_missing_alembic_disabled(tmp_path: Path, monkeypatch):
+    """Verify 'mdm setup --no-init-alembic' exits 1 when alembic.ini is missing."""
     monkeypatch.chdir(tmp_path)
     ini_file = tmp_path / "mdm.ini"
     ini_file.write_text(
@@ -63,7 +86,7 @@ db_local = sqlite:///test.db
 """,
         encoding="utf-8",
     )
-    result = runner.invoke(app, ["setup"])
+    result = runner.invoke(app, ["setup", "--no-init-alembic"])
     assert result.exit_code == 1
     assert "Alembic configuration NOT found" in result.output
 
