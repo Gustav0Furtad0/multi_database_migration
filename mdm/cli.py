@@ -21,6 +21,7 @@ from rich.panel import Panel
 from rich.table import Table
 import typer
 
+from mdm import __version__
 from mdm.config import create_default_config, load_config, mask_url
 from mdm.core import (
     check_migration_sync,
@@ -57,6 +58,27 @@ app.add_typer(setup_app, name="setup")
 
 console = Console()
 err_console = Console(stderr=True)
+
+
+def version_callback(value: bool) -> None:
+    if value:
+        console.print(f"[bold cyan]MDM[/bold cyan] version [green]{__version__}[/green]")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show version and exit.",
+        callback=version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """MDM: Multi-Environment Database Migration CLI built on Alembic, SQLAlchemy, and SQLModel."""
+    return
 
 
 def handle_error(exc: Exception) -> None:

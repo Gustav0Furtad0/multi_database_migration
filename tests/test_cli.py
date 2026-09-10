@@ -13,6 +13,17 @@ from mdm.core import get_script_directory, stamp_database
 runner = CliRunner()
 
 
+def test_cli_version():
+    """Verify 'mdm --version' and 'mdm -v' commands."""
+    res1 = runner.invoke(app, ["--version"])
+    assert res1.exit_code == 0
+    assert "MDM version 0.1.0" in res1.output
+
+    res2 = runner.invoke(app, ["-v"])
+    assert res2.exit_code == 0
+    assert "MDM version 0.1.0" in res2.output
+
+
 def test_cli_setup_file(tmp_path: Path, monkeypatch):
     """Verify 'mdm setup --file' command."""
     monkeypatch.chdir(tmp_path)
