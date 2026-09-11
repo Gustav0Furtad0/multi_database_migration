@@ -172,16 +172,17 @@ class SchemaInspector:
         if self.schema is not None:
             target_schemas = [self.schema]
         else:
-            # Check default search path/schema first
+            # Check default search path/schema first (ignoring system/alembic tables)
             try:
-                default_tables = self.inspector.get_table_names(schema=None)
+                raw_default = self.inspector.get_table_names(schema=None)
+                default_tables = [t for t in raw_default if not is_system_table(t)]
             except Exception:
                 default_tables = []
 
             if default_tables:
                 target_schemas = [None]
             else:
-                # If default schema is empty, try to auto-detect user schemas
+                # If default schema has no user tables, try to auto-detect user schemas
                 try:
                     all_schemas = self.inspector.get_schema_names()
                 except Exception:
@@ -202,7 +203,8 @@ class SchemaInspector:
 
                 if db_name and db_name in user_schemas:
                     try:
-                        db_tables = self.inspector.get_table_names(schema=db_name)
+                        raw_db_tables = self.inspector.get_table_names(schema=db_name)
+                        db_tables = [t for t in raw_db_tables if not is_system_table(t)]
                     except Exception:
                         db_tables = []
                     if db_tables:
@@ -212,7 +214,11 @@ class SchemaInspector:
                     schemas_with_tables = []
                     for s in user_schemas:
                         try:
-                            if self.inspector.get_table_names(schema=s):
+                            tables = [
+                                t for t in self.inspector.get_table_names(schema=s)
+                                if not is_system_table(t)
+                            ]
+                            if tables:
                                 schemas_with_tables.append(s)
                         except Exception:
                             pass
