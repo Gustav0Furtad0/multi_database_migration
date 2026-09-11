@@ -58,7 +58,26 @@ db_local = sqlite:///local.db
     assert cfg.models_output_path == (tmp_path / "generated" / "models.py").resolve()
     assert len(cfg.environments) == 2
     assert cfg.get_database_url("db_local") == "sqlite:///local.db"
+    assert cfg.schema is None
     assert "pass" not in cfg.get_masked_url("db_staging")
+
+
+def test_load_config_with_schema(tmp_path: Path):
+    """Verify loading optional schema configuration."""
+    ini_file = tmp_path / "mdm.ini"
+    ini_file.write_text(
+        """[mdm]
+alembic_config = alembic.ini
+models_output = models.py
+schema = custom_tenant
+
+[environments]
+db_local = sqlite:///test.db
+""",
+        encoding="utf-8",
+    )
+    cfg = load_config(ini_file)
+    assert cfg.schema == "custom_tenant"
 
 
 def test_load_config_missing_file(tmp_path: Path):

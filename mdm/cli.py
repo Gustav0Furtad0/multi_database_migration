@@ -136,6 +136,11 @@ def setup_main(
         "--init-alembic/--no-init-alembic",
         help="Automatically initialize Alembic configuration and migration directory if missing.",
     ),
+    schema: Optional[str] = typer.Option(
+        None,
+        "--schema",
+        help="Database schema to inspect (default: from mdm.ini or auto-detected).",
+    ),
 ) -> None:
     """Setup MDM configuration, initialize Alembic, and generate SQLModel models."""
     if ctx.invoked_subcommand is not None:
@@ -224,10 +229,14 @@ def setup_main(
 
             try:
                 engine = get_engine(config.get_database_url(target_env))
-                with console.status(f"[bold blue]Inspecting database '{target_env}' and generating models...[/bold blue]"):
-                    table_count, out_path = reverse_engineer_database(engine, config.models_output_path)
+                target_schema = schema or config.schema
+                schema_desc = f" (schema: '{target_schema}')" if target_schema else ""
+                with console.status(f"[bold blue]Inspecting database '{target_env}'{schema_desc} and generating models...[/bold blue]"):
+                    table_count, out_path = reverse_engineer_database(
+                        engine, config.models_output_path, schema=target_schema
+                    )
                 console.print(
-                    f"[bold green]✓[/bold green] Generated SQLModel models in [cyan]{out_path}[/cyan] ([green]{table_count}[/green] table(s) from [cyan]{target_env}[/cyan])"
+                    f"[bold green]✓[/bold green] Generated SQLModel models in [cyan]{out_path}[/cyan] ([green]{table_count}[/green] table(s) from [cyan]{target_env}[/cyan]{schema_desc})"
                 )
             except Exception as exc:
                 console.print(f"[bold red]✗ Failed to generate models:[/] {exc}")
@@ -247,6 +256,11 @@ def setup_verify(
         "--env",
         help="Target environment name from mdm.ini to reverse-engineer.",
     ),
+    schema: Optional[str] = typer.Option(
+        None,
+        "--schema",
+        help="Database schema to inspect (default: from mdm.ini or auto-detected).",
+    ),
 ) -> None:
     """Reverse-engineer the target database schema into a canonical SQLModel file."""
     try:
@@ -262,16 +276,18 @@ def setup_verify(
 
         engine = get_engine(db_url)
         try:
-            with console.status(f"[bold blue]Inspecting database '{env}' and generating models..."):
+            target_schema = schema or config.schema
+            schema_desc = f" (schema: '{target_schema}')" if target_schema else ""
+            with console.status(f"[bold blue]Inspecting database '{env}'{schema_desc} and generating models..."):
                 table_count, out_path = reverse_engineer_database(
-                    engine, config.models_output_path
+                    engine, config.models_output_path, schema=target_schema
                 )
         finally:
             engine.dispose()
 
         console.print(
             f"[bold green]✓[/bold green] Reverse-engineered [bold]{table_count}[/bold] table(s) "
-            f"from [cyan]{env}[/cyan] into [cyan]{out_path}[/cyan]"
+            f"from [cyan]{env}[/cyan]{schema_desc} into [cyan]{out_path}[/cyan]"
         )
     except Exception as exc:
         handle_error(exc)

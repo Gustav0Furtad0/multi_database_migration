@@ -47,6 +47,7 @@ class MDMConfig:
     config_path: Path
     alembic_config_path: Path
     models_output_path: Path
+    schema: Optional[str] = None
     environments: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -161,11 +162,13 @@ def load_config(path: Optional[Path] = None) -> MDMConfig:
     project_root = config_path.parent
     alembic_path = (project_root / alembic_config_str).resolve()
     models_path = (project_root / models_output_str).resolve()
+    schema_str = mdm_sec.get("schema", "").strip() or None
 
     return MDMConfig(
         config_path=config_path,
         alembic_config_path=alembic_path,
         models_output_path=models_path,
+        schema=schema_str,
         environments=environments,
     )
 

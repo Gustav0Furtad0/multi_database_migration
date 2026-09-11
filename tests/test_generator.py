@@ -265,3 +265,19 @@ def test_reverse_engineer_database_writes_file(tmp_path: Path):
     assert path == out_file
     assert out_file.is_file()
     assert "class Items(SQLModel, table=True):" in out_file.read_text(encoding="utf-8")
+
+
+def test_schema_reflection(tmp_path: Path):
+    """Verify reverse engineering with explicit or auto-detected schema."""
+    db_path = tmp_path / "schema_test.db"
+    engine = sa.create_engine(f"sqlite:///{db_path}")
+
+    with engine.begin() as conn:
+        conn.execute(sa.text("ATTACH DATABASE ':memory:' AS custom_schema"))
+        conn.execute(sa.text("CREATE TABLE custom_schema.tenant_data (id INT PRIMARY KEY, name TEXT)"))
+
+    # Reflect using explicit schema
+    code = generate_sqlmodel_code(engine, schema="custom_schema")
+    assert "class TenantData(SQLModel, table=True):" in code
+    assert '__table_args__ = {"schema": "custom_schema"}' in code
+

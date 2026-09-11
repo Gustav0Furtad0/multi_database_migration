@@ -86,6 +86,7 @@ class TableSpec:
 
     class_name: str
     table_name: str
+    schema: Optional[str] = None
     columns: list[ColumnSpec] = field(default_factory=list)
     composite_indexes: list[dict[str, Any]] = field(default_factory=list)
     composite_unique_constraints: list[dict[str, Any]] = field(default_factory=list)
@@ -167,38 +168,104 @@ class SchemaInspector:
 
     def inspect_tables(self, imports: set[str]) -> list[TableSpec]:
         """Inspect all user tables in the database schema."""
-        table_names = sorted(self.inspector.get_table_names(schema=self.schema))
+        target_schemas: list[Optional[str]] = []
+        if self.schema is not None:
+            target_schemas = [self.schema]
+        else:
+            # Check default search path/schema first
+            try:
+                default_tables = self.inspector.get_table_names(schema=None)
+            except Exception:
+                default_tables = []
+
+            if default_tables:
+                target_schemas = [None]
+            else:
+                # If default schema is empty, try to auto-detect user schemas
+                try:
+                    all_schemas = self.inspector.get_schema_names()
+                except Exception:
+                    all_schemas = []
+
+                user_schemas = [
+                    s for s in all_schemas
+                    if not s.startswith("pg_") and s not in {"information_schema", "public"}
+                ]
+
+                # Check if database name matches one of the user schemas with tables
+                db_name = None
+                try:
+                    if self.engine.url and self.engine.url.database:
+                        db_name = self.engine.url.database
+                except Exception:
+                    pass
+
+                if db_name and db_name in user_schemas:
+                    try:
+                        db_tables = self.inspector.get_table_names(schema=db_name)
+                    except Exception:
+                        db_tables = []
+                    if db_tables:
+                        target_schemas = [db_name]
+
+                if not target_schemas:
+                    schemas_with_tables = []
+                    for s in user_schemas:
+                        try:
+                            if self.inspector.get_table_names(schema=s):
+                                schemas_with_tables.append(s)
+                        except Exception:
+                            pass
+                    if schemas_with_tables:
+                        target_schemas = schemas_with_tables
+                    else:
+                        target_schemas = [None]
+
         used_class_names: dict[str, int] = {}
         table_specs: list[TableSpec] = []
 
-        for table_name in table_names:
-            if is_system_table(table_name):
+        for current_schema in target_schemas:
+            try:
+                table_names = sorted(self.inspector.get_table_names(schema=current_schema))
+            except Exception:
                 continue
 
-            # Generate unique PascalCase class name
-            base_class_name = to_pascal_case(table_name)
-            if base_class_name in used_class_names:
-                used_class_names[base_class_name] += 1
-                class_name = f"{base_class_name}_{used_class_names[base_class_name]}"
-            else:
-                used_class_names[base_class_name] = 1
-                class_name = base_class_name
+            for table_name in table_names:
+                if is_system_table(table_name):
+                    continue
 
-            spec = self._inspect_single_table(table_name, class_name, imports)
-            table_specs.append(spec)
+                # Generate unique PascalCase class name
+                base_class_name = to_pascal_case(table_name)
+                if base_class_name in used_class_names:
+                    used_class_names[base_class_name] += 1
+                    class_name = f"{base_class_name}_{used_class_names[base_class_name]}"
+                else:
+                    used_class_names[base_class_name] = 1
+                    class_name = base_class_name
+
+                spec = self._inspect_single_table(
+                    table_name, class_name, imports, schema=current_schema
+                )
+                table_specs.append(spec)
 
         return table_specs
 
-    def _inspect_single_table(self, table_name: str, class_name: str, imports: set[str]) -> TableSpec:
+    def _inspect_single_table(
+        self,
+        table_name: str,
+        class_name: str,
+        imports: set[str],
+        schema: Optional[str] = None,
+    ) -> TableSpec:
         # Columns
-        raw_columns = self.inspector.get_columns(table_name, schema=self.schema)
+        raw_columns = self.inspector.get_columns(table_name, schema=schema)
 
         # Primary Key
-        pk_info = self.inspector.get_pk_constraint(table_name, schema=self.schema) or {}
+        pk_info = self.inspector.get_pk_constraint(table_name, schema=schema) or {}
         pk_columns = set(pk_info.get("constrained_columns") or [])
 
         # Foreign Keys
-        raw_fks = self.inspector.get_foreign_keys(table_name, schema=self.schema) or []
+        raw_fks = self.inspector.get_foreign_keys(table_name, schema=schema) or []
         single_fks: dict[str, str] = {}
         composite_fks: list[dict[str, Any]] = []
 
@@ -206,26 +273,28 @@ class SchemaInspector:
             constrained = fk.get("constrained_columns") or []
             referred_table = fk.get("referred_table")
             referred_columns = fk.get("referred_columns") or []
-            referred_schema = fk.get("referred_schema")
+            referred_schema = fk.get("referred_schema") or schema
 
             if len(constrained) == 1 and len(referred_columns) == 1:
                 col_name = constrained[0]
                 target_col = referred_columns[0]
-                target = f"{referred_table}.{target_col}"
-                if referred_schema:
-                    target = f"{referred_schema}.{target}"
+                if referred_schema and referred_schema != "public":
+                    target = f"{referred_schema}.{referred_table}.{target_col}"
+                else:
+                    target = f"{referred_table}.{target_col}"
                 single_fks[col_name] = target
             elif len(constrained) > 1 and len(referred_columns) == len(constrained):
+                ref_prefix = f"{referred_schema}." if referred_schema and referred_schema != "public" else ""
                 composite_fks.append({
                     "name": fk.get("name"),
                     "constrained_columns": constrained,
                     "referred_table": referred_table,
-                    "referred_columns": referred_columns,
+                    "referred_columns": [f"{ref_prefix}{c}" for c in referred_columns],
                     "referred_schema": referred_schema,
                 })
 
         # Indexes
-        raw_indexes = self.inspector.get_indexes(table_name, schema=self.schema) or []
+        raw_indexes = self.inspector.get_indexes(table_name, schema=schema) or []
         single_col_indexes: set[str] = set()
         single_col_uniques: set[str] = set()
         composite_indexes: list[dict[str, Any]] = []
@@ -248,7 +317,7 @@ class SchemaInspector:
 
         # Unique Constraints
         try:
-            raw_uniques = self.inspector.get_unique_constraints(table_name, schema=self.schema) or []
+            raw_uniques = self.inspector.get_unique_constraints(table_name, schema=schema) or []
         except Exception:
             raw_uniques = []
 
@@ -340,6 +409,7 @@ class SchemaInspector:
         return TableSpec(
             class_name=class_name,
             table_name=table_name,
+            schema=schema,
             columns=sorted_columns,
             composite_indexes=composite_indexes,
             composite_unique_constraints=composite_unique_constraints,
@@ -469,10 +539,13 @@ class CodeGenerator:
         table_args = self._generate_table_args(table)
         if table_args:
             lines.append("")
-            lines.append("    __table_args__ = (")
-            for arg in table_args:
-                lines.append(f"        {arg},")
-            lines.append("    )")
+            if len(table_args) == 1 and table_args[0].startswith('{"schema":'):
+                lines.append(f"    __table_args__ = {table_args[0]}")
+            else:
+                lines.append("    __table_args__ = (")
+                for arg in table_args:
+                    lines.append(f"        {arg},")
+                lines.append("    )")
 
         return "\n".join(lines)
 
@@ -538,6 +611,10 @@ class CodeGenerator:
             cols = [f'"{c}"' for c in idx["column_names"]]
             extra = ", unique=True" if idx.get("unique") else ""
             args.append(f"Index({idx_name}, {', '.join(cols)}{extra})")
+
+        # Schema specification if present and not default public
+        if table.schema and table.schema != "public":
+            args.append(f'{{"schema": "{table.schema}"}}')
 
         return args
 
